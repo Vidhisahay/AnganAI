@@ -20,6 +20,9 @@ def get_llm(schema=None):
     )
 
     if schema:
-        return llm.with_structured_output(schema)
+        return llm.with_structured_output(
+            schema,
+            method="json_schema",
+        )
 
     return llm

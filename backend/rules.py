@@ -40,7 +40,7 @@ def calculate_basic_risk(muac_category: str, warnings: list[str]) -> str:
         return "Moderate"
     if warnings:
         return "Needs measurement review"
-    return "Routine"
+    return "Low"
 
 
 def build_risk_flags(muac_category: str, warnings: list[str]) -> list[str]:

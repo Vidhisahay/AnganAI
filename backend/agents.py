@@ -83,12 +83,18 @@ def nutrition_agent(state: GraphState):
     """
     Nutrition Agent
 
-    Generates a personalized nutrition plan
-    based on the child's assessment.
+    Generates a personalized nutrition plan based on:
+    - Child information
+    - Deterministic rules
+    - Child assessment
     """
 
     try:
         llm = get_llm(Nutrition)
+
+        rules = state["rules_output"]
+        assessment = state["assessment"]
+
         prompt = f"""
 {NUTRITION_PROMPT}
 
@@ -96,28 +102,33 @@ Child Information:
 {state["child_data"]}
 
 Assessment:
-{state["assessment"]}
+Growth Status: {assessment.get("growth_status")}
+Risk Level: {assessment.get("risk_level")}
+Summary: {assessment.get("summary")}
+Recommendation: {assessment.get("recommendation")}
+Follow-up Days: {assessment.get("follow_up_days")}
 
-Risk Flags:
-{state["rules_output"]["risk_flags"]}
-
-MUAC Category:
-{state["rules_output"]["muac_category"]}
-
-Measurement Warnings:
-{state["rules_output"]["warnings"]}
+Deterministic Rules:
+MUAC Category: {rules.get("muac_category")}
+Risk Flags: {rules.get("risk_flags")}
+Measurement Warnings: {rules.get("warnings")}
 """
+
         nutrition = llm.invoke(prompt)
+
     except Exception as error:
         logger.exception("Nutrition generation failed")
-        raise WorkflowGenerationError("Unable to generate nutrition plan. The Groq service may be unavailable.") from error
+
+        raise WorkflowGenerationError(
+            "Unable to generate the nutrition plan right now. "
+            "Please try again."
+        ) from error
 
     logger.info("Nutrition generated")
 
     return {
         "nutrition": nutrition.model_dump()
     }
-
 
 def report_agent(state: GraphState):
     """
