@@ -39,7 +39,15 @@ export function ChildInfoCard({
           </div>
           <h2 className="font-semibold text-lg">Child Information</h2>
         </div>
-        <span className="text-xs text-muted-foreground">Last assessed: Today, 8:45 AM</span>
+        <span className="text-xs text-muted-foreground">Last assessed: {new Date().toLocaleString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          })}
+        </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

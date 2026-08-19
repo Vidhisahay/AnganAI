@@ -11,8 +11,8 @@ export function Sidebar() {
   return (
     <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-border bg-sidebar h-screen sticky top-0">
       <div className="px-6 py-6 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-info flex items-center justify-center text-primary-foreground font-bold">
-          A
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="AnganAI" className="h-10 w-10 object-contain" />
         </div>
         <div>
           <div className="font-semibold text-sidebar-foreground leading-tight">AnganAI</div>

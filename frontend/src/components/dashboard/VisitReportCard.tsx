@@ -1,16 +1,18 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Eye, FileText } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import type { AnalyzeChildResponse } from "@/api/anganApi";
+import { downloadReportPdf } from "@/utils/reportPdf";
 
 type VisitReportCardProps = {
-  report: AnalyzeChildResponse["report"] | null;
-  assessment: AnalyzeChildResponse["assessment"] | null;
+  analysis: AnalyzeChildResponse | null;
   childName: string;
 };
 
-export function VisitReportCard({ report, assessment, childName }: VisitReportCardProps) {
+export function VisitReportCard({ analysis, childName }: VisitReportCardProps) {
+  const report = analysis?.report ?? null;
+  const assessment = analysis?.assessment ?? null;
   const growthStatus = assessment?.growth_status ?? "Waiting for analysis";
   const riskLevel = assessment?.risk_level ?? "Waiting for analysis";
   const followUpDays = assessment?.follow_up_days;
@@ -60,11 +62,12 @@ export function VisitReportCard({ report, assessment, childName }: VisitReportCa
           </div>
         </div>
         <div className="flex flex-col gap-2 shrink-0">
-          <Button variant="outline" className="gap-2">
-            <Eye className="w-4 h-4" /> Preview Report
-          </Button>
-          <Button className="gap-2">
-            <Download className="w-4 h-4" /> Download PDF
+          <Button
+            className="gap-2 shadow-sm"
+            disabled={!analysis}
+            onClick={() => analysis && downloadReportPdf(analysis)}
+          >
+            <Download className="w-4 h-4" /> Download Report
           </Button>
         </div>
       </div>

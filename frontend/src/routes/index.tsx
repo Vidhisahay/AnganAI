@@ -128,8 +128,7 @@ function Dashboard() {
               <GrowthChart />
             </div>
             <VisitReportCard
-              report={analysis?.report ?? null}
-              assessment={analysis?.assessment ?? null}
+              analysis={analysis}
               childName={analysis?.child_data.name ?? formValues.name}
             />
           </main>
