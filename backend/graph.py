@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from langgraph.graph import StateGraph, START, END
 
@@ -12,6 +12,8 @@ from backend.agents import (
 
 class GraphState(TypedDict):
     child_data: dict
+    validation_output: dict
+    rules_output: dict[str, Any]
     assessment: dict
     nutrition: dict
     report: dict
