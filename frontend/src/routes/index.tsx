@@ -125,7 +125,12 @@ function Dashboard() {
             <AssessmentCard assessment={analysis?.assessment ?? null} />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <NutritionCard nutrition={analysis?.nutrition ?? null} />
-              <GrowthChart />
+              <GrowthChart
+                age={analysis?.child_data.age}
+                gender={analysis?.child_data.gender}
+                weight={analysis?.child_data.weight}
+                childName={analysis?.child_data.name}
+              />
             </div>
             <VisitReportCard
               analysis={analysis}
