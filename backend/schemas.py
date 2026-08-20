@@ -1,5 +1,8 @@
-from pydantic import BaseModel
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict
 
+
+# AI / Analysis Schemas
 
 class Assessment(BaseModel):
     growth_status: str
@@ -22,8 +25,44 @@ class Report(BaseModel):
     parent_advice: str
     worker_notes: str
 
+
 class AnalyzeResponse(BaseModel):
     child_data: dict
     assessment: Assessment
     nutrition: Nutrition
     report: Report
+
+
+# Database / Child Schemas
+
+class ChildCreate(BaseModel):
+    name: str
+    age: int
+    gender: str
+
+
+class ChildResponse(BaseModel):
+    id: int
+    name: str
+    age: int
+    gender: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class AssessmentHistoryItem(BaseModel):
+    id: int
+    height: float
+    weight: float
+    muac: float | None
+    growth_status: str | None
+    risk_level: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ChildHistoryResponse(BaseModel):
+    child_id: int
+    child_name: str
+    assessments: list[AssessmentHistoryItem]
