@@ -55,13 +55,14 @@ function Dashboard() {
   };
 
   const handleAnalyze = async () => {
+    const muacValue = formValues.muac.trim();
     const parsedRequest = {
       name: formValues.name.trim(),
       age: Number(formValues.age),
       gender: formValues.gender,
       height: Number(formValues.height),
       weight: Number(formValues.weight),
-      muac: Number(formValues.muac),
+      muac: muacValue === "" ? null : Number(muacValue),
     };
 
     if (
@@ -70,7 +71,7 @@ function Dashboard() {
       !Number.isFinite(parsedRequest.age) ||
       !Number.isFinite(parsedRequest.height) ||
       !Number.isFinite(parsedRequest.weight) ||
-      !Number.isFinite(parsedRequest.muac)
+      (parsedRequest.muac !== null && !Number.isFinite(parsedRequest.muac))
     ) {
       setError("Please complete all fields with valid values before analyzing.");
       return;
@@ -83,6 +84,7 @@ function Dashboard() {
       const response = await analyzeChild(parsedRequest);
       setAnalysis(response);
     } catch (requestError) {
+      console.error("Unable to display child analysis result", requestError);
       setError(getErrorMessage(requestError));
     } finally {
       setIsAnalyzing(false);
@@ -130,6 +132,7 @@ function Dashboard() {
                 gender={analysis?.child_data.gender}
                 weight={analysis?.child_data.weight}
                 childName={analysis?.child_data.name}
+                childId={analysis?.child_id}
               />
             </div>
             <VisitReportCard

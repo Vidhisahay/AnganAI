@@ -101,7 +101,7 @@ def analyze(
         db.refresh(db_child)
 
     try:
-        # Run existing LangGraph workflow
+        # Run LangGraph workflow
         result = graph.invoke(
             {
                 "child_data": child_data,
@@ -111,11 +111,15 @@ def analyze(
             }
         )
 
+        # -----------------------------
         # Save assessment
+        # -----------------------------
+
         assessment_data = result["assessment"]
 
         assessment = models.Assessment(
             child_id=db_child.id,
+            age=child.age,
             height=child.height,
             weight=child.weight,
             muac=child.muac,
@@ -130,7 +134,10 @@ def analyze(
         db.commit()
         db.refresh(assessment)
 
+        # -----------------------------
         # Save nutrition plan
+        # -----------------------------
+
         nutrition_data = result["nutrition"]
 
         nutrition_plan = models.NutritionPlan(
@@ -144,7 +151,10 @@ def analyze(
 
         db.add(nutrition_plan)
 
+        # -----------------------------
         # Save report
+        # -----------------------------
+
         report_data = result["report"]
 
         report = models.Report(
@@ -159,12 +169,18 @@ def analyze(
         # Save nutrition + report
         db.commit()
 
+        # Add database child ID to API response
+        result["child_id"] = db_child.id
+
         return result
 
     except WorkflowGenerationError as error:
         db.rollback()
 
-        logger.error("Workflow generation failed: %s", error)
+        logger.error(
+            "Workflow generation failed: %s",
+            error,
+        )
 
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

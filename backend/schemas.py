@@ -28,6 +28,7 @@ class Report(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     child_data: dict
+    child_id: int
     assessment: Assessment
     nutrition: Nutrition
     report: Report
@@ -52,6 +53,7 @@ class ChildResponse(BaseModel):
 
 class AssessmentHistoryItem(BaseModel):
     id: int
+    age: int
     height: float
     weight: float
     muac: float | None

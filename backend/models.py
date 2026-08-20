@@ -72,6 +72,8 @@ class Assessment(Base):
         nullable=False
     )
 
+    age = Column(Integer, nullable=False)
+
     child = relationship(
         "Child",
         back_populates="assessments"
