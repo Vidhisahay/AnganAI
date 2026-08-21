@@ -7,6 +7,7 @@ from sqlalchemy import (
     Float,
     Text,
     DateTime,
+    Date,
     ForeignKey,
 )
 
@@ -20,7 +21,11 @@ class Child(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
+    child_code = Column(String, unique=True, nullable=False, index=True)
+
     name = Column(String, nullable=False)
+
+    date_of_birth = Column(Date, nullable=True)
 
     age = Column(Integer, nullable=False)
 

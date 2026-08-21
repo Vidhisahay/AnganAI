@@ -18,6 +18,7 @@ type ChildInfoCardProps = {
   onFieldChange: (field: keyof ChildFormValues, value: string) => void;
   onAnalyze: () => void;
   isAnalyzing: boolean;
+  childCode?: string;
 };
 
 export function ChildInfoCard({
@@ -25,6 +26,7 @@ export function ChildInfoCard({
   onFieldChange,
   onAnalyze,
   isAnalyzing,
+  childCode,
 }: ChildInfoCardProps) {
   const handleInputChange =
     (field: keyof ChildFormValues) => (event: ChangeEvent<HTMLInputElement>) => {
@@ -50,7 +52,17 @@ export function ChildInfoCard({
         </span>
       </div>
 
+      {childCode ? (
+        <p className="mb-4 text-sm font-medium text-muted-foreground">
+          Child ID: {childCode}
+        </p>
+      ) : null}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-1.5">
+          <Label>Child ID <span className="text-muted-foreground text-xs">optional</span></Label>
+          <Input value={values.childCode} onChange={handleInputChange("childCode")} placeholder="ANG-000001" />
+        </div>
         <div className="space-y-1.5">
           <Label>Name</Label>
           <Input value={values.name} onChange={handleInputChange("name")} />

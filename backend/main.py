@@ -1,5 +1,10 @@
+from datetime import date
+import re
+
 from fastapi import FastAPI, HTTPException, status, Depends
 from pydantic import BaseModel
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.agents import WorkflowGenerationError
@@ -7,6 +12,11 @@ from backend.graph import graph
 from backend.rules import evaluate_child_measurements
 from backend.utils import logger
 from backend.validators import validate_child_input
+from backend.child_codes import (
+    child_code_for_id,
+    normalize_child_code,
+    pending_child_code,
+)
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -39,9 +49,11 @@ app.add_middleware(
 
 
 class ChildInput(BaseModel):
+    child_code: str | None = None
     name: str
     age: int
     gender: str
+    date_of_birth: date | None = None
     height: float
     weight: float
     muac: float | None = None
@@ -68,7 +80,10 @@ def analyze(
     child: ChildInput,
     db: Session = Depends(get_db),
 ):
-    child_data = child.model_dump()
+    # The LangGraph workflow continues to receive the existing measurement payload.
+    child_data = child.model_dump(exclude={"child_code", "date_of_birth"})
+    child_data["name"] = child_data["name"].strip()
+    child_data["gender"] = child_data["gender"].strip()
 
     validation_output = validate_child_input(child_data)
     logger.info("Validation passed")
@@ -76,29 +91,63 @@ def analyze(
     rules_output = evaluate_child_measurements(child_data)
     logger.info("Rules engine completed")
 
-    # Find existing child
-    existing_child = (
-        db.query(models.Child)
-        .filter(
-            models.Child.name == child.name,
-            models.Child.age == child.age,
-            models.Child.gender == child.gender,
+    supplied_child_code = child.child_code
+    if supplied_child_code is not None:
+        supplied_child_code = normalize_child_code(supplied_child_code)
+        if not re.fullmatch(r"ANG-\d{6,}", supplied_child_code):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="child_code must use the format ANG-000001.",
+            )
+
+        existing_child = (
+            db.query(models.Child)
+            .filter(func.lower(models.Child.child_code) == supplied_child_code.lower())
+            .first()
         )
-        .first()
-    )
+        if not existing_child:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Child not found for the supplied child_code.",
+            )
+    else:
+        # Backward-compatible lookup for existing frontend submissions. Age is
+        # deliberately excluded because it changes between assessments.
+        existing_child = (
+            db.query(models.Child)
+            .filter(
+                func.lower(models.Child.name) == child_data["name"].lower(),
+                func.lower(models.Child.gender) == child_data["gender"].lower(),
+            )
+            .first()
+        )
 
     if existing_child:
         db_child = existing_child
     else:
         db_child = models.Child(
-            name=child.name,
+            # This placeholder permits a non-null unique column on fresh
+            # databases until SQLAlchemy flushes and assigns the integer ID.
+            child_code=pending_child_code(),
+            name=child_data["name"],
             age=child.age,
-            gender=child.gender,
+            gender=child_data["gender"],
+            date_of_birth=child.date_of_birth,
         )
 
-        db.add(db_child)
-        db.commit()
-        db.refresh(db_child)
+        try:
+            db.add(db_child)
+            db.flush()
+            db_child.child_code = child_code_for_id(db_child.id)
+            db.commit()
+            db.refresh(db_child)
+        except IntegrityError as error:
+            db.rollback()
+            logger.exception("Unable to create child record")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to create a unique child record. Please try again.",
+            ) from error
 
     try:
         # Run LangGraph workflow
@@ -171,6 +220,7 @@ def analyze(
 
         # Add database child ID to API response
         result["child_id"] = db_child.id
+        result["child_code"] = db_child.child_code
 
         return result
 
@@ -199,18 +249,29 @@ def analyze(
 
 
 @app.get(
-    "/children/{child_id}/history",
+    "/children/{child_code}/history",
     response_model=ChildHistoryResponse
 )
 def get_child_history(
-    child_id: int,
+    child_code: str,
     db: Session = Depends(get_db),
 ):
-    child = (
-        db.query(models.Child)
-        .filter(models.Child.id == child_id)
-        .first()
-    )
+    # Numeric paths remain supported for callers using the former
+    # /children/{child_id}/history endpoint. New clients use child codes.
+    if child_code.isdecimal():
+        child = db.query(models.Child).filter(models.Child.id == int(child_code)).first()
+    else:
+        normalized_code = normalize_child_code(child_code)
+        if not re.fullmatch(r"ANG-\d{6,}", normalized_code):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="child_code must use the format ANG-000001.",
+            )
+        child = (
+            db.query(models.Child)
+            .filter(func.lower(models.Child.child_code) == normalized_code.lower())
+            .first()
+        )
 
     if not child:
         raise HTTPException(
@@ -220,13 +281,14 @@ def get_child_history(
 
     assessments = (
         db.query(models.Assessment)
-        .filter(models.Assessment.child_id == child_id)
+        .filter(models.Assessment.child_id == child.id)
         .order_by(models.Assessment.created_at.asc())
         .all()
     )
 
     return {
         "child_id": child.id,
+        "child_code": child.child_code,
         "child_name": child.name,
         "assessments": assessments,
     }

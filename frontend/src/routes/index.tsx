@@ -10,6 +10,7 @@ import { VisitReportCard } from "@/components/dashboard/VisitReportCard";
 import { analyzeChild, type AnalyzeChildResponse, type ChildFormValues } from "@/api/anganApi";
 
 const initialFormValues: ChildFormValues = {
+  childCode: "",
   name: "Rahul Kumar",
   age: "2",
   gender: "Male",
@@ -57,6 +58,7 @@ function Dashboard() {
   const handleAnalyze = async () => {
     const muacValue = formValues.muac.trim();
     const parsedRequest = {
+      child_code: formValues.childCode.trim() || undefined,
       name: formValues.name.trim(),
       age: Number(formValues.age),
       gender: formValues.gender,
@@ -123,6 +125,7 @@ function Dashboard() {
               onFieldChange={handleFieldChange}
               onAnalyze={handleAnalyze}
               isAnalyzing={isAnalyzing}
+              childCode={analysis?.child_code}
             />
             <AssessmentCard assessment={analysis?.assessment ?? null} />
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -132,6 +135,7 @@ function Dashboard() {
                 gender={analysis?.child_data.gender}
                 weight={analysis?.child_data.weight}
                 childName={analysis?.child_data.name}
+                childCode={analysis?.child_code}
                 childId={analysis?.child_id}
               />
             </div>

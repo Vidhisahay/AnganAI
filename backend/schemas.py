@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict
 
 
@@ -29,6 +29,7 @@ class Report(BaseModel):
 class AnalyzeResponse(BaseModel):
     child_data: dict
     child_id: int
+    child_code: str
     assessment: Assessment
     nutrition: Nutrition
     report: Report
@@ -37,16 +38,20 @@ class AnalyzeResponse(BaseModel):
 # Database / Child Schemas
 
 class ChildCreate(BaseModel):
+    child_code: str | None = None
     name: str
     age: int
     gender: str
+    date_of_birth: date | None = None
 
 
 class ChildResponse(BaseModel):
     id: int
+    child_code: str
     name: str
     age: int
     gender: str
+    date_of_birth: date | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -66,5 +71,6 @@ class AssessmentHistoryItem(BaseModel):
 
 class ChildHistoryResponse(BaseModel):
     child_id: int
+    child_code: str
     child_name: str
     assessments: list[AssessmentHistoryItem]

@@ -2,6 +2,7 @@ import axios from "axios";
 import { z } from "zod";
 
 export interface ChildFormValues {
+  childCode: string;
   name: string;
   age: string;
   gender: string;
@@ -11,12 +12,14 @@ export interface ChildFormValues {
 }
 
 export interface AnalyzeChildRequest {
+  child_code?: string;
   name: string;
   age: number;
   gender: string;
   height: number;
   weight: number;
   muac: number | null;
+  date_of_birth?: string;
 }
 
 export interface AnalyzeChildResponse {
@@ -29,6 +32,7 @@ export interface AnalyzeChildResponse {
     muac: number | null;
   };
   child_id: number;
+  child_code: string;
 
   assessment: {
     growth_status: string;
@@ -65,6 +69,7 @@ const analyzeChildResponseSchema = z.object({
     muac: z.number().nullable(),
   }),
   child_id: z.number(),
+  child_code: z.string(),
   assessment: z.object({
     growth_status: z.string(),
     risk_level: z.string(),

@@ -23,6 +23,7 @@ interface GrowthChartProps {
   gender?: string;
   weight?: number;
   childName?: string;
+  childCode?: string;
   childId?: number;
 }
 
@@ -43,6 +44,7 @@ interface AssessmentHistory {
 
 interface ChildHistoryResponse {
   child_id: number;
+  child_code: string;
   child_name: string;
   assessments: AssessmentHistory[];
 }
@@ -53,6 +55,7 @@ export function GrowthChart({
   age,
   gender,
   weight,
+  childCode,
   childId,
 }: GrowthChartProps) {
   const [history, setHistory] = useState<AssessmentHistory[]>([]);
@@ -63,7 +66,9 @@ export function GrowthChart({
    * Fetch assessment history whenever the selected child changes.
    */
   useEffect(() => {
-    if (childId === undefined) {
+    const childIdentifier = childCode?.trim() || childId?.toString();
+
+    if (!childIdentifier) {
       setHistory([]);
       setHistoryError(null);
       return;
@@ -75,7 +80,7 @@ export function GrowthChart({
         setHistoryError(null);
 
         const response = await anganApi.get<ChildHistoryResponse>(
-          `/children/${childId}/history`,
+          `/children/${childIdentifier}/history`,
         );
         const data = response.data;
 
@@ -91,7 +96,7 @@ export function GrowthChart({
     };
 
     fetchHistory();
-  }, [childId]);
+  }, [childCode, childId]);
 
   const normalizedGender = gender?.trim().toLowerCase() ?? "";
   const ageInMonths = Math.floor((age ?? Number.NaN) * 12);
