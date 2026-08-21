@@ -16,6 +16,7 @@ import {
   whoWeightForAgeGirls,
   type WhoWeightForAgePoint,
 } from "@/data/whoWeightForAge";
+
 import anganApi from "@/api/anganApi";
 
 interface GrowthChartProps {
@@ -26,10 +27,6 @@ interface GrowthChartProps {
   childCode?: string;
   childId?: number;
 }
-
-type ChartPoint = WhoWeightForAgePoint & {
-  childWeight?: number;
-};
 
 interface AssessmentHistory {
   id: number;
@@ -49,7 +46,50 @@ interface ChildHistoryResponse {
   assessments: AssessmentHistory[];
 }
 
+type ChartPoint = WhoWeightForAgePoint & {
+  childWeight?: number;
+};
+
+interface ChildTrendPoint {
+  date: string;
+  dateLabel: string;
+  age: number;
+  weight: number;
+  height: number;
+  muac?: number | null;
+  assessmentId: number;
+}
+
 const formatKilograms = (value: number) => `${value.toFixed(1)} kg`;
+
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+  });
+};
+
+const formatAge = (age: number) => {
+  if (!Number.isFinite(age)) {
+    return "—";
+  }
+
+  if (age === 0) {
+    return "0 years";
+  }
+
+  if (Number.isInteger(age)) {
+    return `${age} year${age === 1 ? "" : "s"}`;
+  }
+
+  return `${age.toFixed(1)} years`;
+};
 
 export function GrowthChart({
   age,
@@ -64,6 +104,9 @@ export function GrowthChart({
 
   /*
    * Fetch assessment history whenever the selected child changes.
+   *
+   * Child code is preferred because it is the stable public identifier.
+   * Numeric child ID is retained as a backward-compatible fallback.
    */
   useEffect(() => {
     const childIdentifier = childCode?.trim() || childId?.toString();
@@ -82,6 +125,7 @@ export function GrowthChart({
         const response = await anganApi.get<ChildHistoryResponse>(
           `/children/${childIdentifier}/history`,
         );
+
         const data = response.data;
 
         setHistory(data.assessments ?? []);
@@ -98,7 +142,16 @@ export function GrowthChart({
     fetchHistory();
   }, [childCode, childId]);
 
+  /*
+   * Normalize gender for selecting the correct WHO reference dataset.
+   */
   const normalizedGender = gender?.trim().toLowerCase() ?? "";
+
+  /*
+   * Current child's age expressed in months.
+   *
+   * This is used only for the WHO reference chart / fallback.
+   */
   const ageInMonths = Math.floor((age ?? Number.NaN) * 12);
 
   /*
@@ -110,105 +163,106 @@ export function GrowthChart({
       : whoWeightForAgeGirls;
 
   /*
-   * Build child measurement points from PostgreSQL history.
+   * Build the child's actual historical trend.
    *
-   * We keep the WHO reference data as the base and then add
-   * childWeight at the appropriate age/month.
+   * IMPORTANT:
+   * We intentionally DO NOT group assessments by age/month.
    *
-   * Multiple assessments at the same age are handled by keeping
-   * the latest assessment for that month.
+   * A child can have multiple assessments at the same age:
+   *
+   *   Assessment 1 → age 2 → 9.0 kg
+   *   Assessment 2 → age 2 → 9.5 kg
+   *   Assessment 3 → age 2 → 10.0 kg
+   *
+   * All three measurements must remain visible.
+   *
+   * The X-axis therefore represents assessment date/order,
+   * while the tooltip shows the child's age.
    */
-  const childHistoryByMonth = useMemo(() => {
-    const measurements = new Map<number, AssessmentHistory>();
-
-    history.forEach((assessment) => {
-      if (
-        !Number.isFinite(assessment.age) ||
-        !Number.isFinite(assessment.weight)
-      ) {
-        return;
-      }
-
-      const month = Math.floor(assessment.age * 12);
-
-      if (month < 0 || month > 60) {
-        return;
-      }
-
-      const existing = measurements.get(month);
-
-      /*
-       * If multiple assessments exist for the same age,
-       * keep the most recent one.
-       */
-      if (!existing) {
-        measurements.set(month, assessment);
-        return;
-      }
-
-      const existingDate = new Date(existing.created_at).getTime();
-      const currentDate = new Date(assessment.created_at).getTime();
-
-      if (currentDate >= existingDate) {
-        measurements.set(month, assessment);
-      }
-    });
-
-    return measurements;
+  const childTrendData: ChildTrendPoint[] = useMemo(() => {
+    return [...history]
+      .filter(
+        (assessment) =>
+          Number.isFinite(assessment.age) &&
+          Number.isFinite(assessment.weight) &&
+          Number.isFinite(new Date(assessment.created_at).getTime()),
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() -
+          new Date(b.created_at).getTime(),
+      )
+      .map((assessment) => ({
+        date: assessment.created_at,
+        dateLabel: formatDate(assessment.created_at),
+        age: assessment.age,
+        weight: assessment.weight,
+        height: assessment.height,
+        muac: assessment.muac,
+        assessmentId: assessment.id,
+      }));
   }, [history]);
 
   /*
-   * Combine WHO reference points with the child's historical weights.
+   * Determine whether PostgreSQL returned historical data.
+   */
+  const hasHistoricalData = childTrendData.length > 0;
+
+  /*
+   * WHO reference data.
+   *
+   * The WHO curves remain based on age in months.
+   *
+   * We do not attach the child's historical measurements to these
+   * points anymore because the child trend has a different X-axis
+   * (assessment date).
    */
   const chartData: ChartPoint[] = useMemo(() => {
-    return referenceData.map((point) => {
-      const assessment = childHistoryByMonth.get(point.month);
-
-      if (assessment) {
-        return {
-          ...point,
-          childWeight: assessment.weight,
-        };
-      }
-
-      return point;
-    });
-  }, [referenceData, childHistoryByMonth]);
+    return referenceData;
+  }, [referenceData]);
 
   /*
-   * If PostgreSQL history isn't available yet, use the current
-   * assessment as a fallback so the chart doesn't disappear.
+   * Current assessment fallback.
+   *
+   * This keeps the chart useful even if history has not been saved
+   * or the history API is temporarily unavailable.
    */
-  const hasHistoricalData = history.length > 0;
-
-  const fallbackChartData: ChartPoint[] = useMemo(() => {
+  const fallbackTrendData: ChildTrendPoint[] = useMemo(() => {
     if (hasHistoricalData) {
-      return chartData;
+      return childTrendData;
     }
 
-    return referenceData.map((point) =>
-      point.month === ageInMonths
-        ? {
-            ...point,
-            childWeight: weight,
-          }
-        : point,
-    );
-  }, [
-    hasHistoricalData,
-    chartData,
-    referenceData,
-    ageInMonths,
-    weight,
-  ]);
+    if (
+      age === undefined ||
+      weight === undefined ||
+      !Number.isFinite(age) ||
+      !Number.isFinite(weight)
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        date: new Date().toISOString(),
+        dateLabel: "Current",
+        age,
+        weight,
+        height: 0,
+        muac: null,
+        assessmentId: 0,
+      },
+    ];
+  }, [hasHistoricalData, childTrendData, age, weight]);
 
   /*
-   * These guards deliberately run after every hook above. Previously, the
-   * first render returned here before the memo hooks, while the post-analysis
-   * render called them, causing React's "Rendered more hooks" runtime error.
+   * Basic validation.
+   *
+   * These guards intentionally run AFTER all hooks.
    */
   if (age === undefined || weight === undefined) {
-    return <GrowthChartCard message="Analyze a child to view weight-for-age data." />;
+    return (
+      <GrowthChartCard message="Analyze a child to view weight-for-age data." />
+    );
   }
 
   if (normalizedGender !== "male" && normalizedGender !== "female") {
@@ -232,23 +286,28 @@ export function GrowthChart({
    * Loading state.
    */
   if (historyLoading) {
-    return (
-      <GrowthChartCard message="Loading assessment history..." />
-    );
+    return <GrowthChartCard message="Loading assessment history..." />;
   }
 
   /*
-   * Error state is not fatal.
-   *
-   * We can still show the current assessment using the fallback.
+   * Use historical measurements when available.
    */
-  const finalChartData = fallbackChartData;
+  const finalTrendData = fallbackTrendData;
 
+  /*
+   * We use a combined chart area for the WHO reference curves.
+   *
+   * The child trend is rendered separately because its X-axis is
+   * assessment date rather than WHO age/month.
+   *
+   * This keeps the data semantically correct and prevents historical
+   * measurements from being collapsed together.
+   */
   return (
     <Card className="p-6 shadow-[var(--shadow-card)] border-border/60">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="font-semibold text-lg">Weight vs Age</h2>
+          <h2 className="font-semibold text-lg">Growth Trend</h2>
 
           {hasHistoricalData && (
             <p className="text-xs text-muted-foreground mt-1">
@@ -263,10 +322,14 @@ export function GrowthChart({
         </div>
       </div>
 
+      {/* ========================= */}
+      {/* CHILD HISTORICAL TREND    */}
+      {/* ========================= */}
+
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
-            data={finalChartData}
+            data={finalTrendData}
             margin={{
               top: 10,
               right: 12,
@@ -281,11 +344,8 @@ export function GrowthChart({
             />
 
             <XAxis
-              dataKey="month"
-              type="number"
-              domain={[0, 60]}
-              tickCount={7}
-              tickFormatter={(month) => `${month}m`}
+              dataKey="dateLabel"
+              type="category"
               tick={{
                 fontSize: 12,
                 fill: "var(--muted-foreground)",
@@ -306,15 +366,83 @@ export function GrowthChart({
             />
 
             <Tooltip
-              labelFormatter={(month) => `Age: ${month} months`}
-              formatter={(value: number, name: string) => [
-                formatKilograms(value),
-                name,
-              ]}
+              labelFormatter={(label) => `Assessment: ${label}`}
+              formatter={(value: number, name: string) => {
+                if (name === "Child Weight") {
+                  return [formatKilograms(value), name];
+                }
+
+                return [value, name];
+              }}
               contentStyle={{
                 borderRadius: 12,
                 border: "1px solid var(--border)",
                 boxShadow: "var(--shadow-card)",
+              }}
+              content={({ active, payload, label }) => {
+                if (!active || !payload || payload.length === 0) {
+                  return null;
+                }
+
+                const point = payload[0]?.payload as
+                  | ChildTrendPoint
+                  | undefined;
+
+                if (!point) {
+                  return null;
+                }
+
+                return (
+                  <div
+                    className="rounded-xl border bg-background p-3 shadow-[var(--shadow-card)]"
+                    style={{
+                      borderColor: "var(--border)",
+                    }}
+                  >
+                    <p className="text-sm font-medium mb-2">
+                      {label}
+                    </p>
+
+                    <div className="space-y-1 text-xs">
+                      <p>
+                        <span className="text-muted-foreground">
+                          Age:
+                        </span>{" "}
+                        {formatAge(point.age)}
+                      </p>
+
+                      <p>
+                        <span className="text-muted-foreground">
+                          Weight:
+                        </span>{" "}
+                        <span className="font-medium">
+                          {formatKilograms(point.weight)}
+                        </span>
+                      </p>
+
+                      {Number.isFinite(point.height) &&
+                        point.height > 0 && (
+                          <p>
+                            <span className="text-muted-foreground">
+                              Height:
+                            </span>{" "}
+                            {point.height.toFixed(1)} cm
+                          </p>
+                        )}
+
+                      {point.muac !== null &&
+                        point.muac !== undefined &&
+                        Number.isFinite(point.muac) && (
+                          <p>
+                            <span className="text-muted-foreground">
+                              MUAC:
+                            </span>{" "}
+                            {point.muac.toFixed(1)} cm
+                          </p>
+                        )}
+                    </div>
+                  </div>
+                );
               }}
             />
 
@@ -325,60 +453,13 @@ export function GrowthChart({
               }}
             />
 
-            {/* WHO reference curves */}
+            {/* Child's actual historical measurements */}
 
             <Line
               type="monotone"
-              dataKey="p3"
-              stroke="var(--destructive)"
-              strokeWidth={1.5}
-              dot={false}
-              name="WHO 3rd percentile"
-            />
-
-            <Line
-              type="monotone"
-              dataKey="p15"
-              stroke="var(--warning)"
-              strokeWidth={1.5}
-              dot={false}
-              name="WHO 15th percentile"
-            />
-
-            <Line
-              type="monotone"
-              dataKey="p50"
-              stroke="var(--success)"
-              strokeWidth={2}
-              dot={false}
-              name="WHO Median"
-            />
-
-            <Line
-              type="monotone"
-              dataKey="p85"
-              stroke="var(--info)"
-              strokeWidth={1.5}
-              dot={false}
-              name="WHO 85th percentile"
-            />
-
-            <Line
-              type="monotone"
-              dataKey="p97"
+              dataKey="weight"
               stroke="var(--primary)"
-              strokeWidth={1.5}
-              dot={false}
-              name="WHO 97th percentile"
-            />
-
-            {/* Child's historical measurements */}
-
-            <Line
-              type="monotone"
-              dataKey="childWeight"
-              stroke="var(--primary)"
-              strokeWidth={2}
+              strokeWidth={2.5}
               dot={{
                 r: 5,
                 fill: "var(--primary)",
@@ -395,6 +476,10 @@ export function GrowthChart({
         </ResponsiveContainer>
       </div>
 
+      {/* ========================= */}
+      {/* STATUS / ERROR MESSAGE    */}
+      {/* ========================= */}
+
       {historyError ? (
         <div className="text-xs text-muted-foreground mt-3">
           {historyError} Showing the latest assessment instead.
@@ -406,6 +491,10 @@ export function GrowthChart({
             : "Showing the current assessment. Historical measurements will appear after they are saved."}
         </div>
       )}
+
+      {/* ========================= */}
+      {/* WHO REFERENCE INFORMATION */}
+      {/* ========================= */}
 
       <div className="text-xs text-muted-foreground mt-2">
         Reference: WHO Child Growth Standards (0–60 months). Reference curves
@@ -419,7 +508,7 @@ function GrowthChartCard({ message }: { message: string }) {
   return (
     <Card className="p-6 shadow-[var(--shadow-card)] border-border/60">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="font-semibold text-lg">Weight vs Age</h2>
+        <h2 className="font-semibold text-lg">Growth Trend</h2>
 
         <div className="text-xs px-3 py-1.5 rounded-lg border border-border bg-background">
           WHO Weight-for-Age
