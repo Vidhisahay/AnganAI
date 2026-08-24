@@ -2,6 +2,13 @@ from typing import Any, TypedDict
 
 from langgraph.graph import StateGraph, START, END
 
+from backend.guardrails import (
+    GuardrailViolation,
+    validate_assessment_output,
+    validate_nutrition_output,
+    validate_report_output,
+)
+
 from backend.agents import (
     supervisor_agent,
     child_analysis_agent,

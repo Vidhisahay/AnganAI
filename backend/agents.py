@@ -74,8 +74,19 @@ Rules Engine Output:
 
     logger.info("Child analysis generated")
 
+
+    assessment_data = assessment.model_dump()
+
+    try:
+        validated_assessment = validate_assessment_output(assessment_data)
+    except GuardrailViolation as error:
+        logger.error("Assessment guardrail triggered: %s", error)
+        raise WorkflowGenerationError(
+            "The generated assessment failed safety validation. Please try again."
+        ) from error
+
     return {
-        "assessment": assessment.model_dump()
+        "assessment": validated_assessment
     }
 
 
@@ -126,8 +137,18 @@ Measurement Warnings: {rules.get("warnings")}
 
     logger.info("Nutrition generated")
 
+    nutrition_data = nutrition.model_dump()
+
+    try:
+        validated_nutrition = validate_nutrition_output(nutrition_data)
+    except GuardrailViolation as error:
+        logger.error("Nutrition guardrail triggered: %s", error)
+        raise WorkflowGenerationError(
+            "The generated nutrition plan failed validation. Please try again."
+        ) from error
+
     return {
-        "nutrition": nutrition.model_dump()
+        "nutrition": validated_nutrition
     }
 
 def report_agent(state: GraphState):
@@ -160,6 +181,18 @@ Nutrition Plan:
     logger.info("Report generated")
     logger.info("Workflow completed")
 
+    report_data = report.model_dump()
+
+    try:
+        validated_report = validate_report_output(report_data)
+    except GuardrailViolation as error:
+        logger.error("Report guardrail triggered: %s", error)
+        raise WorkflowGenerationError(
+            "The generated report failed validation. Please try again."
+        ) from error
+
+    logger.info("Workflow completed")
+
     return {
-        "report": report.model_dump()
-    }
+        "report": validated_report
+    }Add AI guardrails 
