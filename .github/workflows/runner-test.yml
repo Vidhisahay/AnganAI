@@ -1,0 +1,17 @@
+name: Self Hosted Runner Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: self-hosted
+
+    steps:
+      - name: Test EC2 Runner
+        run: |
+          echo "Hello from AnganAI EC2!"
+          echo "User: $(whoami)"
+          echo "Host: $(hostname)"
+          echo "Docker:"
+          docker --version
