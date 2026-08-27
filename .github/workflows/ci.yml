@@ -97,3 +97,41 @@ jobs:
         run: |
           docker push $REGISTRY/$REPOSITORY:latest
           docker push $REGISTRY/$REPOSITORY:${{ github.sha }}
+
+  deploy:
+    name: Deploy to EC2
+    runs-on: self-hosted
+    needs:
+      - docker
+
+    steps:
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region eu-north-1 | \
+          docker login \
+            --username AWS \
+            --password-stdin 655840552972.dkr.ecr.eu-north-1.amazonaws.com
+
+      - name: Pull latest backend image
+        run: |
+          docker pull \
+            655840552972.dkr.ecr.eu-north-1.amazonaws.com/anganai-backend:latest
+
+      - name: Stop existing backend container
+        run: |
+          docker stop anganai-backend || true
+          docker rm anganai-backend || true
+
+      - name: Run latest backend
+        run: |
+          docker run -d \
+            --name anganai-backend \
+            --restart unless-stopped \
+            -p 8000:8000 \
+            --env-file /home/ubuntu/anganai/.env \
+            655840552972.dkr.ecr.eu-north-1.amazonaws.com/anganai-backend:latest
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          curl --fail http://localhost:8000/health
