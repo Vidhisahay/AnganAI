@@ -105,6 +105,9 @@ jobs:
       - docker
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Login to Amazon ECR
         run: |
           aws ecr get-login-password --region eu-north-1 | \
@@ -112,26 +115,15 @@ jobs:
             --username AWS \
             --password-stdin 655840552972.dkr.ecr.eu-north-1.amazonaws.com
 
-      - name: Pull latest backend image
+      - name: Pull latest image
         run: |
-          docker pull \
-            655840552972.dkr.ecr.eu-north-1.amazonaws.com/anganai-backend:latest
+          docker compose pull backend
 
-      - name: Stop existing backend container
+      - name: Deploy application
         run: |
-          docker stop anganai-backend || true
-          docker rm anganai-backend || true
+          docker compose up -d
 
-      - name: Run latest backend
+      - name: Verify backend
         run: |
-          docker run -d \
-            --name anganai-backend \
-            --restart unless-stopped \
-            -p 8000:8000 \
-            --env-file /home/ubuntu/anganai/.env \
-            655840552972.dkr.ecr.eu-north-1.amazonaws.com/anganai-backend:latest
-
-      - name: Verify deployment
-        run: |
-          sleep 5
+          sleep 10
           curl --fail http://localhost:8000/health

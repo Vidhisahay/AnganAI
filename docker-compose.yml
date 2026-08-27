@@ -19,9 +19,8 @@ services:
       retries: 10
 
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: 655840552972.dkr.ecr.eu-north-1.amazonaws.com/anganai-backend:latest
+    
     container_name: anganai-backend
     restart: unless-stopped
     env_file:
