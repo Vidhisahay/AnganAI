@@ -24,7 +24,7 @@ services:
     container_name: anganai-backend
     restart: unless-stopped
     env_file:
-      - ./backend/.env
+      - /home/ubuntu/anganai/backend/.env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/anganai
     ports:
