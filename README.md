@@ -1,18 +1,18 @@
 # AnganAI
 
-### Multi-Agent AI Assistant for Anganwadi Workers
+### Multi-Agent AI Decision-Support System for Anganwadi Workers
 
-An AI-powered decision-support system that helps Anganwadi workers analyze child growth measurements, assess nutritional risk, generate personalized nutrition recommendations, and prepare structured visit reports.
+AnganAI is an AI-powered decision-support system designed to help Anganwadi workers analyze child growth measurements, assess nutritional risk, generate personalized nutrition recommendations, and prepare structured visit reports.
 
 <p align="left">
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11+-blue?logo=python" alt="Python"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.12+-blue?logo=python" alt="Python"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi" alt="FastAPI"></a>
   <a href="https://www.langchain.com/langgraph"><img src="https://img.shields.io/badge/LangGraph-Multi--Agent-orange" alt="LangGraph"></a>
-  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-Frontend-61DAFB?logo=react" alt="React"></a>
-  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-Frontend-3178C6?logo=typescript" alt="TypeScript"></a>
-  <img src="https://img.shields.io/badge/status-MVP-yellow" alt="Status">
-  <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="License">
+  <img src="https://img.shields.io/badge/Docker-Containerized-2496ED?logo=docker" alt="Docker">
+  <img src="https://img.shields.io/badge/GitHub_Actions-CI%2FCD-2088FF?logo=githubactions" alt="GitHub Actions">
 </p>
+
+---
 
 ## Overview
 
@@ -23,13 +23,28 @@ The system combines:
 - Deterministic input validation
 - Rule-based health assessment
 - Multi-Agent AI orchestration
-- LangGraph
+- LangGraph workflow management
 - Structured LLM outputs
-- Nutrition recommendations
+- Personalized nutrition recommendations
 - Automated report generation
-- A React-based dashboard
+- Growth visualization
+- PostgreSQL persistence
+- Docker-based deployment
+- Automated CI/CD using GitHub Actions
 
 Rather than functioning as a general-purpose chatbot, AnganAI is designed around a **structured workflow** where each AI agent has a specific responsibility.
+
+
+---
+
+
+### Dashboard
+AnganAI provides a dashboard-first interface for Anganwadi workers to enter child information, review AI-assisted assessments, generate nutrition recommendations, and prepare structured visit reports.
+
+<br>
+
+![AnganAI Dashboard](https://github.com/Vidhisahay/AnganAI/blob/main/Visual/AnganAI.png)
+
 
 ---
 
@@ -52,11 +67,12 @@ AnganAI aims to simplify this workflow by providing an AI-assisted system that:
 2. Performs deterministic rule-based assessment.
 3. Uses specialized AI agents for different tasks.
 4. Generates structured recommendations.
-5. Presents the results through a simple dashboard.
+5. Produces a structured visit report.
+6. Presents the results through a simple dashboard.
 
 ---
 
-# Solution
+## Solution
 
 The application follows a **Supervisor-based Multi-Agent architecture**.
 
@@ -89,53 +105,153 @@ flowchart TD
 ```
 
 
+---
 
 ## Key Features
 
-### Child Health Assessment
-Workers enter a child's age, height, weight, and MUAC. The system returns growth status, risk level, measurement interpretation, and relevant health observations.
-
-### AI Nutrition Planning
-The Nutrition Agent generates a structured meal plan (breakfast, lunch, evening snack, dinner, and a supplement reminder), personalized by age, growth assessment, risk level, MUAC category, dietary preferences, affordability, and locally available foods.
-
-### Automated Visit Reports
-The Report Agent combines child information, measurements, growth assessment, risk indicators, nutrition recommendations, and follow-up guidance into a structured, PDF-ready visit report.
-
-### Growth Visualization
-The dashboard includes a growth chart to help workers track weight trends over time.
-
-### Deterministic Validation
-Raw input is never sent straight to an LLM. Measurements are checked against expected physiological ranges first, so obviously invalid values are rejected before the AI workflow starts.
-
-### Multi-Agent AI Workflow
-LangGraph coordinates specialized agents instead of relying on a single, monolithic LLM call, making the system easier to reason about, debug, and extend.
-
----
-
+- **Child Assessment** - Analyzes growth measurements and identifies health risks.
+- **AI Nutrition Planning** - Generates personalized, age-appropriate meal recommendations.
+- **Automated Reports** - Creates structured visit reports with follow-up guidance.
+- **Growth Visualization** - Tracks and visualizes child weight trends.
+- **Deterministic Validation** - Validates measurements before they reach the LLM.
+- **Multi-Agent Workflow** - LangGraph orchestrates specialized AI agents for assessment, nutrition, and reporting.
 
 ## Why Multi-Agent AI?
 
-Instead of asking a single LLM to perform the entire task, AnganAI separates responsibilities into specialized agents. This provides:
+AnganAI separates the workflow into specialized agents rather than relying on a single monolithic LLM call.
+
+This provides:
 
 - Separation of concerns
+- Specialized prompts
 - Easier debugging
 - More controllable workflows
-- Specialized prompts per task
-- Structured, predictable outputs
+- Structured outputs
+- Clear workflow stages
 - Easier future expansion
-- Better observability of individual workflow stages
+- Better observability of individual stages
+
+The architecture also allows individual agents to be evaluated or improved independently.
+
+---
+
+## AI Guardrails
+
+AnganAI uses multiple layers of guardrails to make the AI workflow more controlled and predictable.
+
+### 1. Deterministic Input Validation
+
+Child measurements are validated before entering the LLM workflow.
 
 ```text
-Child Analysis
-      ↓
-Risk Assessment
-      ↓
-Nutrition Recommendation
-      ↓
-Visit Report
+Raw Input
+    ↓
+Deterministic Validation
+    ↓
+Rules Engine
+    ↓
+LLM Workflow
 ```
 
-Each stage has a clearly defined responsibility.
+Invalid measurements are rejected before AI generation begins.
+
+This ensures that the LLM does not have to determine whether basic input values are valid.
+
+---
+
+### 2. Structured LLM Outputs
+
+Each AI agent uses a dedicated Pydantic schema to constrain its response.
+
+Instead of relying on unpredictable free-form text, downstream workflow stages receive structured data.
+
+This improves:
+
+- Output consistency
+- Data validation
+- Frontend integration
+- Error handling
+- Workflow reliability
+
+---
+
+## Deployment Architecture
+
+AnganAI was containerized and deployed to AWS as part of the project's MLOps implementation.
+
+```text
+                     GitHub Repository
+                            │
+                            ▼
+                   GitHub Actions CI/CD
+                            │
+             ┌──────────────┴──────────────┐
+             │                             │
+       Backend Checks               Frontend Build
+             │                             │
+             └──────────────┬──────────────┘
+                            ▼
+                     Docker Build
+                            │
+                            ▼
+                       Amazon ECR
+                            │
+                            ▼
+                         AWS EC2
+                            │
+                     Docker Compose
+                            │
+             ┌──────────────┴──────────────┐
+             │                             │
+       FastAPI Backend                PostgreSQL
+             │
+             ▼
+       LangGraph Workflow
+```
+
+## MLOps & CI/CD
+
+AnganAI includes an automated CI/CD pipeline covering backend validation, frontend builds, Docker image creation, container registry publishing, and EC2 deployment.
+
+## CI/CD Pipeline
+
+```text
+Git Push
+   ↓
+GitHub Actions
+   ↓
+Backend Checks
+   ├── Python dependency installation
+   └── Python compilation checks
+   ↓
+Frontend Checks
+   ├── npm ci
+   └── Production build
+   ↓
+Docker Image Build
+   ↓
+Amazon ECR
+   ↓
+EC2 Deployment
+   ↓
+Docker Compose
+   ↓
+Health Check
+```
+
+---
+
+## Deployment Metrics
+
+The deployed application was validated on an AWS EC2 instance.
+
+| Metric | Result |
+|---|---:|
+| CI/CD pipeline execution | ~1m 51s |
+| Health endpoint response time | ~1.9–2.1 ms |
+| Backend memory usage | ~84 MB |
+| PostgreSQL memory usage | ~36 MB |
+| Backend Docker image content size | ~95.6 MB |
 
 
 ---
@@ -144,26 +260,52 @@ Each stage has a clearly defined responsibility.
 
 | Layer | Technologies |
 |---|---|
-| **Frontend** | React (Vite), TypeScript, Tailwind CSS, shadcn/ui, Recharts, Axios |
-| **Backend** | Python, FastAPI, LangGraph, LangChain, Pydantic |
-| **Data** | PostgreSQL (persistence), Redis (caching) |
+| **Backend** | Python, FastAPI, LangChain, LangGraph, Pydantic |
 | **AI / ML** | Groq LLM API, Llama models, structured LLM outputs, rule-based validation, prompt engineering |
-| **Infrastructure** | Docker, Git, GitHub |
-
-> PostgreSQL and Redis support the persistence and caching layer as the project moves beyond the MVP.
+| **Data** | PostgreSQL |
+| **Infrastructure / MLOps** | Docker, Docker Compose, GitHub Actions, Amazon ECR, AWS EC2, Self-hosted GitHub Actions Runner |
+| **Version Control** | Git, GitHub |
 
 ---
+
+
+## Key Engineering Decisions
+
+### Deterministic logic before LLM reasoning
+
+Input validation and rule-based checks are performed before the AI workflow. This prevents basic invalid inputs from being passed directly to the LLM.
+
+
+### Specialized AI agents
+
+Each agent has a focused responsibility rather than relying on one large prompt.
+
+
+### Structured outputs
+
+Pydantic schemas constrain the outputs of individual agents. This allows the frontend and downstream workflow stages to work with predictable data structures.
+
+
+### Containerized deployment
+
+The backend is packaged as a Docker image, creating a reproducible deployment environment across local development and cloud infrastructure.
+
+### Automated CI/CD
+
+GitHub Actions validates the application, builds the Docker image, pushes it to Amazon ECR, and deploys the containerized backend to EC2.
 
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.12+
 - Node.js 18+
 - Git
+- Docker Desktop
 - A [Groq API key](https://console.groq.com/)
-- PostgreSQL and Redis
+
+---
 
 ### 1. Clone the Repository
 
@@ -172,45 +314,66 @@ git clone https://github.com/<your-username>/AnganAI.git
 cd AnganAI
 ```
 
+---
+
 ### 2. Backend Setup
 
 Create and activate a virtual environment:
 
+### Windows
+
 ```bash
 python -m venv .venv
-
-# Windows
 .venv\Scripts\activate
+```
 
-# macOS / Linux
+### macOS / Linux
+
+```bash
+python -m venv .venv
 source .venv/bin/activate
 ```
 
 Install dependencies:
 
 ```bash
-pip install -r backend/requirements.txt
+pip install -r requirements.txt
 ```
 
-Create `backend/.env`:
+Create:
+
+```text
+backend/.env
+```
+
+Add:
 
 ```env
 GROQ_API_KEY=your_groq_api_key
 MODEL_NAME=llama-3.3-70b-versatile
 
-# Optional — only needed if persistence/caching is enabled
 DATABASE_URL=your_database_url
-REDIS_URL=your_redis_url
 ```
 
-Start the backend from the project root:
+Start the backend:
 
 ```bash
 python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-- API: `http://127.0.0.1:8000`
-- Interactive docs: `http://127.0.0.1:8000/docs`
+Backend:
+
+```text
+http://127.0.0.1:8000
+```
+
+Interactive API documentation:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+---
 
 ### 3. Frontend Setup
 
@@ -219,7 +382,13 @@ cd frontend
 npm install
 ```
 
-Create `frontend/.env`:
+Create:
+
+```text
+frontend/.env
+```
+
+Add:
 
 ```env
 VITE_API_URL=http://127.0.0.1:8000
@@ -231,7 +400,35 @@ Start the frontend:
 npm run dev
 ```
 
-The app will be available at the local URL printed by the dev server.
+The application will be available at the local URL provided by Vite.
+
+---
+
+### 4. Docker Setup
+
+The backend and PostgreSQL database can be run using Docker Compose.
+
+```bash
+docker compose up --build
+```
+
+The backend will be available at:
+
+```text
+http://localhost:8000
+```
+
+API documentation:
+
+```text
+http://localhost:8000/docs
+```
+
+To stop the containers:
+
+```bash
+docker compose down
+```
 
 ---
 
@@ -241,7 +438,8 @@ The app will be available at the local URL printed by the dev server.
 
 Runs a child's information through the complete LangGraph workflow.
 
-**Request**
+### Request
+
 ```json
 {
   "name": "Rahul",
@@ -253,7 +451,8 @@ Runs a child's information through the complete LangGraph workflow.
 }
 ```
 
-**Response**
+### Response
+
 ```json
 {
   "child_data": {
@@ -290,7 +489,7 @@ Runs a child's information through the complete LangGraph workflow.
 
 ## Validation & Error Handling
 
-Measurements are checked against expected physiological ranges before the AI workflow is invoked:
+Measurements are checked against expected physiological ranges before the AI workflow is invoked.
 
 ```text
 Age     → 0–5 years
@@ -299,7 +498,9 @@ Weight  → 1–40 kg
 MUAC    → 5–30 cm
 ```
 
-Requests outside these ranges are rejected with a structured error rather than being passed to the AI agents:
+Requests outside these ranges are rejected with a structured error rather than being passed to the AI agents.
+
+Example:
 
 ```json
 {
@@ -318,19 +519,18 @@ This separation between deterministic validation and LLM processing improves rel
 
 ---
 
-
 ## Future Improvements
 
+The next stage of the project focuses on **AI observability, evaluation, and product expansion**.
+
+- [ ] LangSmith-based agent tracing and observability
+- [ ] Ragas-based LLM evaluation
+- [ ] Agent latency and token usage monitoring
+- [ ] Automated evaluation dataset
 - [ ] Improved growth reference visualization
 - [ ] Assessment history and multiple-child profiles
-- [ ] PostgreSQL persistence
-- [ ] Hindi and regional language support
-- [ ] Voice-based data entry
-- [ ] Notifications and follow-up reminders
 - [ ] Offline-first support for low-connectivity environments
-- [ ] Agent workflow observability and monitoring
 
----
 
 # Author
 
