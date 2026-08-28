@@ -1,0 +1,152 @@
+[
+  {
+    "id": "valid_001",
+    "description": "Normal valid child",
+    "input": {
+      "name": "Test Child",
+      "age": 2,
+      "gender": "Male",
+      "height": 82,
+      "weight": 10,
+      "muac": 14
+    },
+    "expected": {
+      "valid": true
+    }
+  },
+  {
+    "id": "valid_002",
+    "description": "Valid younger child",
+    "input": {
+      "name": "Test Child",
+      "age": 1,
+      "gender": "Female",
+      "height": 72,
+      "weight": 8,
+      "muac": 13
+    },
+    "expected": {
+      "valid": true
+    }
+  },
+  {
+    "id": "valid_003",
+    "description": "Valid older child",
+    "input": {
+      "name": "Test Child",
+      "age": 5,
+      "gender": "Male",
+      "height": 110,
+      "weight": 18,
+      "muac": 16
+    },
+    "expected": {
+      "valid": true
+    }
+  },
+  {
+    "id": "invalid_age",
+    "description": "Age outside allowed range",
+    "input": {
+      "name": "Test Child",
+      "age": 7,
+      "gender": "Male",
+      "height": 82,
+      "weight": 10,
+      "muac": 14
+    },
+    "expected": {
+      "valid": false
+    }
+  },
+  {
+    "id": "invalid_height",
+    "description": "Height outside allowed range",
+    "input": {
+      "name": "Test Child",
+      "age": 2,
+      "gender": "Male",
+      "height": 200,
+      "weight": 10,
+      "muac": 14
+    },
+    "expected": {
+      "valid": false
+    }
+  },
+  {
+    "id": "invalid_weight",
+    "description": "Weight outside allowed range",
+    "input": {
+      "name": "Test Child",
+      "age": 2,
+      "gender": "Male",
+      "height": 82,
+      "weight": 50,
+      "muac": 14
+    },
+    "expected": {
+      "valid": false
+    }
+  },
+  {
+    "id": "invalid_muac",
+    "description": "MUAC outside allowed range",
+    "input": {
+      "name": "Test Child",
+      "age": 2,
+      "gender": "Male",
+      "height": 82,
+      "weight": 10,
+      "muac": 40
+    },
+    "expected": {
+      "valid": false
+    }
+  },
+  {
+    "id": "invalid_multiple",
+    "description": "Multiple invalid measurements",
+    "input": {
+      "name": "Test Child",
+      "age": 8,
+      "gender": "Female",
+      "height": 200,
+      "weight": 50,
+      "muac": 40
+    },
+    "expected": {
+      "valid": false
+    }
+  },
+  {
+    "id": "boundary_low",
+    "description": "Lower validation boundaries",
+    "input": {
+      "name": "Test Child",
+      "age": 0,
+      "gender": "Male",
+      "height": 30,
+      "weight": 1,
+      "muac": 5
+    },
+    "expected": {
+      "valid": true
+    }
+  },
+  {
+    "id": "boundary_high",
+    "description": "Upper validation boundaries",
+    "input": {
+      "name": "Test Child",
+      "age": 5,
+      "gender": "Female",
+      "height": 130,
+      "weight": 40,
+      "muac": 30
+    },
+    "expected": {
+      "valid": true
+    }
+  }
+]

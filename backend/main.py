@@ -78,6 +78,7 @@ def health():
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(
     child: ChildInput,
+    evaluation: bool = False,
     db: Session = Depends(get_db),
 ):
     # The LangGraph workflow continues to receive the existing measurement payload.
@@ -91,63 +92,65 @@ def analyze(
     rules_output = evaluate_child_measurements(child_data)
     logger.info("Rules engine completed")
 
-    supplied_child_code = child.child_code
-    if supplied_child_code is not None:
-        supplied_child_code = normalize_child_code(supplied_child_code)
-        if not re.fullmatch(r"ANG-\d{6,}", supplied_child_code):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="child_code must use the format ANG-000001.",
+    db_child = None
+    if not evaluation:
+        supplied_child_code = child.child_code
+        if supplied_child_code is not None:
+            supplied_child_code = normalize_child_code(supplied_child_code)
+            if not re.fullmatch(r"ANG-\d{6,}", supplied_child_code):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="child_code must use the format ANG-000001.",
+                )
+
+            existing_child = (
+                db.query(models.Child)
+                .filter(func.lower(models.Child.child_code) == supplied_child_code.lower())
+                .first()
+            )
+            if not existing_child:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Child not found for the supplied child_code.",
+                )
+        else:
+            # Backward-compatible lookup for existing frontend submissions. Age is
+            # deliberately excluded because it changes between assessments.
+            existing_child = (
+                db.query(models.Child)
+                .filter(
+                    func.lower(models.Child.name) == child_data["name"].lower(),
+                    func.lower(models.Child.gender) == child_data["gender"].lower(),
+                )
+                .first()
             )
 
-        existing_child = (
-            db.query(models.Child)
-            .filter(func.lower(models.Child.child_code) == supplied_child_code.lower())
-            .first()
-        )
-        if not existing_child:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Child not found for the supplied child_code.",
+        if existing_child:
+            db_child = existing_child
+        else:
+            db_child = models.Child(
+                # This placeholder permits a non-null unique column on fresh
+                # databases until SQLAlchemy flushes and assigns the integer ID.
+                child_code=pending_child_code(),
+                name=child_data["name"],
+                age=child.age,
+                gender=child_data["gender"],
+                date_of_birth=child.date_of_birth,
             )
-    else:
-        # Backward-compatible lookup for existing frontend submissions. Age is
-        # deliberately excluded because it changes between assessments.
-        existing_child = (
-            db.query(models.Child)
-            .filter(
-                func.lower(models.Child.name) == child_data["name"].lower(),
-                func.lower(models.Child.gender) == child_data["gender"].lower(),
-            )
-            .first()
-        )
 
-    if existing_child:
-        db_child = existing_child
-    else:
-        db_child = models.Child(
-            # This placeholder permits a non-null unique column on fresh
-            # databases until SQLAlchemy flushes and assigns the integer ID.
-            child_code=pending_child_code(),
-            name=child_data["name"],
-            age=child.age,
-            gender=child_data["gender"],
-            date_of_birth=child.date_of_birth,
-        )
-
-        try:
-            db.add(db_child)
-            db.flush()
-            db_child.child_code = child_code_for_id(db_child.id)
-            db.commit()
-            db.refresh(db_child)
-        except IntegrityError as error:
-            db.rollback()
-            logger.exception("Unable to create child record")
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Unable to create a unique child record. Please try again.",
-            ) from error
+            try:
+                db.add(db_child)
+                db.flush()
+                db_child.child_code = child_code_for_id(db_child.id)
+                db.commit()
+                db.refresh(db_child)
+            except IntegrityError as error:
+                db.rollback()
+                logger.exception("Unable to create child record")
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Unable to create a unique child record. Please try again.",
+                ) from error
 
     try:
         # Run LangGraph workflow
@@ -160,12 +163,17 @@ def analyze(
             }
         )
 
-        # -----------------------------
-        # Save assessment
-        # -----------------------------
+        if evaluation:
+            # Evaluation exercises the full graph but deliberately has no
+            # database side effects. Zero is a documented non-persisted ID.
+            result["child_id"] = 0
+            result["child_code"] = "EVALUATION"
+            return result
 
+        # -----------------------------
+        # Save assessment, nutrition plan, and report
+        # -----------------------------
         assessment_data = result["assessment"]
-
         assessment = models.Assessment(
             child_id=db_child.id,
             age=child.age,
@@ -178,47 +186,28 @@ def analyze(
             recommendation=assessment_data["recommendation"],
             follow_up_days=assessment_data["follow_up_days"],
         )
-
         db.add(assessment)
-        db.commit()
-        db.refresh(assessment)
-
-        # -----------------------------
-        # Save nutrition plan
-        # -----------------------------
+        db.flush()
 
         nutrition_data = result["nutrition"]
-
-        nutrition_plan = models.NutritionPlan(
+        db.add(models.NutritionPlan(
             assessment_id=assessment.id,
             breakfast=nutrition_data["breakfast"],
             lunch=nutrition_data["lunch"],
             evening_snack=nutrition_data["evening_snack"],
             dinner=nutrition_data["dinner"],
             supplement=nutrition_data["supplement"],
-        )
-
-        db.add(nutrition_plan)
-
-        # -----------------------------
-        # Save report
-        # -----------------------------
+        ))
 
         report_data = result["report"]
-
-        report = models.Report(
+        db.add(models.Report(
             assessment_id=assessment.id,
             summary=report_data["summary"],
             parent_advice=report_data["parent_advice"],
             worker_notes=report_data["worker_notes"],
-        )
-
-        db.add(report)
-
-        # Save nutrition + report
+        ))
         db.commit()
 
-        # Add database child ID to API response
         result["child_id"] = db_child.id
         result["child_code"] = db_child.child_code
 
